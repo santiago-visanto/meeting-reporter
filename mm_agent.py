@@ -5,8 +5,18 @@ from langgraph.graph import Graph
 
 from langchain.adapters.openai import convert_openai_messages
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+from langchain_cohere import ChatCohere
 
-MODEL='gpt-4-turbo'
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+#MODEL='gpt-4-turbo'
+#MODEL='llama3-8b-8192'
+#MODEL='llama3-70b-8192'
+MODEL='command-r-plus'
 
 class WriterAgent:
 
@@ -14,55 +24,81 @@ class WriterAgent:
         
         sample_json = """
             {
-              "title": title of the article,
-              "date": today's date,
-              "body": The body of the article,
-                "summary": "2 sentences summary of the article"
+            "title": Title of the meeting,
+            "date": Date of the meeting,
+            "attendees": List of dictionaries of the meeting attendees. The dictionaries must have the following key values: "name", "position" and "role". The "role" key refers to the attendee's function in the meeting. If any of the values of these keys is not clear or is not mentioned, it is given the value "Not clear".
+            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs".
+            "takeaways": Enumerate the takeaways of the meeting minute. 
+            "conclusions": Summary of the most important points that took place at the meeting and the conclusions.
+            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions.
             }
             """
 
         prompt = [{
             "role": "system",
-            "content": "You are a newspaper writer. Your sole purpose is to write a well-written article about the meeting described in the minutes "
+            "content":"As an expert in minute meeting creation, you are a chatbot designed to facilitate the process of "
+                    "generating meeting minutes efficiently.\n" 
+                    
+                    "Please return nothing but a JSON in the following format:\n"
+                    f"{sample_json}\n"
+                    
+
+                    "Respond in Spanish.\n" 
+
+                    "Ensure that your responses are structured, concise, and provide a comprehensive overview of the meeting proceedings for"
+                    "effective record-keeping and follow-up actions."
+
+                    
         }, {
             "role": "user",
             "content": f"Today's date is {datetime.now().strftime('%d/%m/%Y')}\n."
 
-                       f"{the_text}\n"
-                       f""""Your task is to write an article for me about the meeting described above covering what seems most important.
-                       The article should be approximately {word_count} words and should be divided into paragraphs
-                       using newline characters.
-                       You are reporting news. Do not editorialize."""
-                       f"Please return nothing but a JSON in the following format:\n"
-                       f"{sample_json}\n "
+                    f"{the_text}\n"
+                    f""""Your task is to write up for me the minutes of the meeting described above, including all the points of the meeting.
+                    The meeting minutes should be approximately {word_count} words and should be divided into paragraphs
+                    using newline characters."""
+
 
         }]
-
+        #print(f"prompt: {prompt}")
+        
         lc_messages = convert_openai_messages(prompt)
+        
+        #print(f"lc_messages: {lc_messages}")
         optional_params = {
             "response_format": {"type": "json_object"}
         }
 
-        response = ChatOpenAI(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
-        #print (response)
+        #response = ChatOpenAI(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        response = ChatCohere(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+
+        print (f"Response from Writer: {response}")
         return json.loads(response)
 
     def revise(self, article: dict):
         sample_revise_json = """
             {
-                "body": The body of the article,,
-                "message": "message to the critique"
+            "title": Title of the meeting,
+            "date": Date of the meeting,
+            "attendees":  List of dictionaries of the meeting attendees. The dictionaries must have the following key-values: "name", "position" and "role in the meeting".
+            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs".
+            "takeaways": Enumerate the takeaways of the meeting minute. 
+            "conclusions": Summary of the most important points that took place at the meeting and the conclusions.
+            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions.
+            "message": "message to the critique"
             }
             """
         prompt = [{
             "role": "system",
-            "content": "You are a newspaper editor. Your sole purpose is to edit a well-written article about a "
+            "content": "You are an expert meeting minutes creator in Spanish. Your sole purpose is to edit well-written minutes on a  "
                        "topic based on given critique\n "
+                       "Respond in Spanish language"
         }, {
             "role": "user",
             "content": f"{str(article)}\n"
-                        f"Your task is to edit the article based on the critique given.\n "
-                        f"Please return json format of the 'paragraphs' and a new 'message' field"
+                        f"Your task is to edit the meeting minutes based on the critique given.\n "
+                        f"Please return json format of the 'dictionaries' and a new 'message' field"
                         f"to the critique that explain your changes or why you didn't change anything.\n"
                         f"please return nothing but a JSON in the following format:\n"
                         f"{sample_revise_json}\n "
@@ -74,9 +110,12 @@ class WriterAgent:
             "response_format": {"type": "json_object"}
         }
 
-        response = ChatOpenAI(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        #response = ChatOpenAI(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        response = ChatCohere(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
+        
         response = json.loads(response)
-        print(f"For article: {article['title']}")
+        #print(f"For article: {article['title']}")
         print(f"Writer Revision Message: {response['message']}\n")
         return response
 
@@ -97,27 +136,31 @@ class CritiqueAgent:
         del short_article['source'] #to save tokens
         prompt = [{
             "role": "system",
-            "content": "You are a newspaper writing critique. Your sole purpose is to provide short feedback on a written "
-                       "article so the writer will know what to fix.\n "
+            "content": "You are critical of meeting minutes. Its sole purpose is to provide brief feedback on an "
+                    "meeting minutes so the writer knows what to fix.\n "
+                    "Respond in Spanish"
         }, {
             "role": "user",
             "content": f"Today's date is {datetime.now().strftime('%d/%m/%Y')}\n."
-                       f"{str(short_article)}\n"
-                       f"Your task is to provide  feedback on the article only if necessary.\n"
-                       f"the article is a news story so should not include editorial comments."
-                       f"Be sure that names are given for split votes and for debate."
-                       f"The maker of each motion should be named."
-                       f"if you think the article is good, please return only the word 'None' without the surrounding hash marks.\n"
-                       f"do NOT return any text except the word 'None' without surrounding hash marks if no further work is needed onthe article."
-                       f"if you noticed the field 'message' in the article, it means the writer has revised the article"
-                       f"based on your previous critique. The writer may have explained in message why some of your"
-                       f"critique could not be accomodated. For example, something you asked for is not available information."
-                       f"you can provide feedback on the revised article or "
-                       f"return only the word 'None' without surrounding hash mark if you think the article is good."
+                    f"{str(short_article)}\n"
+                    f"Your task is to provide  feedback on the meeting minutes only if necessary.\n"
+                    f"Be sure that names are given for split votes and for debate."
+                    f"The maker of each motion should be named."
+                    f"if you think the meeting minutes is good, please return only the word 'None' without the surrounding hash marks.\n"
+                    f"do NOT return any text except the word 'None' without surrounding hash marks if no further work is needed onthe article."
+                    f"if you noticed the field 'message' in the meeting minutes, it means the writer has revised the meeting minutes"
+                    f"based on your previous critique. The writer may have explained in message why some of your"
+                    f"critique could not be accomodated. For example, something you asked for is not available information."
+                    f"you can provide feedback on the revised meeting minutes or "
+                    f"return only the word 'None' without surrounding hash mark if you think the article is good."
         }] 
 
         lc_messages = convert_openai_messages(prompt)
-        response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
+        #response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
+        #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
+        response = ChatCohere(model=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
+
+
         if response == 'None':
             return {'critique': None}
         else:
@@ -135,7 +178,6 @@ class CritiqueAgent:
 
 
 class InputAgent:
-       
     def run(self,article:dict):
         from mytools import extract_text, load_text_from_path, load_text_from_url
         
@@ -210,7 +252,7 @@ class StateMachine:
         workflow.add_node("critique", critique_agent.run)
         workflow.add_node("output",output_agent.run)
         workflow.add_node("human_review",human_review.run)
- 
+
         #workflow.add_edge(start_agent.name,"input")
         workflow.add_edge("input","write")
 
@@ -218,9 +260,9 @@ class StateMachine:
         workflow.add_edge('critique','human_review')
         workflow.add_edge(start_agent.name,"input")
         workflow.add_conditional_edges(start_key='human_review',
-                                       condition=lambda x: "accept" if x['critique'] is None else "revise",
-                                       conditional_edge_mapping={"accept": "output", "revise": "write"})
-                                       
+                                    condition=lambda x: "accept" if x['critique'] is None else "revise",
+                                    conditional_edge_mapping={"accept": "output", "revise": "write"})
+                                    
         
         # set up start and end nodes
         workflow.set_entry_point(start_agent.name)
@@ -230,8 +272,8 @@ class StateMachine:
         self.chain=workflow.compile(checkpointer=self.memory,interrupt_after=[start_agent.name,"critique"])
     def start(self):
         result=self.chain.invoke("",self.thread)
-        #print("*",self.chain.get_state(self.thread),"*")
-        #print("r",result)
+        print("*",self.chain.get_state(self.thread),"*")
+        print("r",result)
         if result is None:
             values=self.chain.get_state(self.thread).values
             last_state=next(iter(values))

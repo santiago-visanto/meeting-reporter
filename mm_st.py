@@ -4,6 +4,16 @@ import streamlit as st
 import mm_agent
 
 
+def load_api_key():
+    return os.getenv("OPENAI_API_KEY")
+
+
+def initialize_state(api_key):
+    st.session_state['api_key'] = api_key
+    st.session_state['dm'] = None
+    st.session_state['result'] = None
+    st.session_state["newvalues"] = None
+
 def process_form(form_number,article):
     def set_value():
         print("set value",st.session_state.url)
@@ -12,7 +22,7 @@ def process_form(form_number,article):
         
     def set_file():
         st.session_state["newvalues"].update({"raw":st.session_state.input_file.getvalue(),
-                                     "file_name":st.session_state.input_file.name})
+                                    "file_name":st.session_state.input_file.name})
         
         del st.session_state.newvalues["next"]
     def do_first_dialog():
@@ -24,7 +34,7 @@ def process_form(form_number,article):
         # Buttons and logic
         if st.button('OK'):
             st.session_state['newvalues']={'origin':"internet" if source_document=="the internet" else "upload",
-                                           "words":words_in_article,"next":True}
+                                        "words":words_in_article,"next":True}
             st.rerun()
 
         
@@ -37,18 +47,18 @@ def process_form(form_number,article):
         if "origin" in article: #if initial dialog happened
             if article["origin"]=="internet":
                 st.text_input("Enter the URL of your source document:",key="url",
-                                                           on_change=set_value)
+                                on_change=set_value)
             else: #if have to upload file
                 st.file_uploader('Choose your source document',
-                                      type=['pdf','docx','html','txt'],
-                                      accept_multiple_files=False,
-                                      help="""
-                                      This is the source for the story you want written.
-                                      It can be a pdf, docx, html, or text file
-                                      """,
-                                      on_change=(set_file),
-                                      key="input_file"
-                                      )
+                                type=['pdf','docx','html','txt'],
+                                accept_multiple_files=False,
+                                help="""
+                                This is the source for the story you want written.
+                                It can be a pdf, docx, html, or text file
+                                """,
+                                on_change=(set_file),
+                                key="input_file"
+                                )
         if not "origin" in article: #if this is initial dialog
             do_first_dialog()
     elif form_number==1:
@@ -56,12 +66,73 @@ def process_form(form_number,article):
         st.title(header)
         
         # Instructions (if any)
-        instruction_text = "You can edit either the article or the critique.\n Clear the critique to use the article as displayed. "
+        instruction_text = "Puede editar el acta o la crítica.\n Borre la crítica para utilizar el acta tal y como se muestra."
         if instruction_text:
             st.write(instruction_text)
+            
+        markdown_template=""
+            
+        markdown_template = """
+# {title}
+
+## Fecha: 
+{date}
+
+## Asistentes
+
+{attendees_list}
+
+## Resumen
+
+{summary}
+
+## Principales Puntos de la Reunión
+
+{body_section}
+
+## Conclusiones
+
+{conclusions}
+
+## Tareas
+
+{tasks_table}
+        """
+        # Suponiendo que 'attendees' es una lista de diccionarios como se describe, necesitamos convertirla en una cadena de texto formateada adecuadamente
+        attendees_list = "\n".join([f"- **{attendee['name']} ({attendee['position']}): {attendee['role']}" for attendee in article["attendees"]])
+        body_list = article["takeaways"]
+        # Creando la lista numerada para 'body'
+        #body_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["body"])])
+
+        # Creando la tabla de tareas
+        table_header = "| Responsable | Fecha | Descripción |\n|-----------------|---------------|----------------------------------------------|\n"
+        table_rows = "\n".join([f"| {task['responsible']} | {task['date']} | {task['description']} |" for task in article["tasks"]])
+
+        # Aplicando strip() a cada elemento de las listas que contienen cadenas de texto
+        attendees_list = attendees_list.strip()
+        body_list = body_list
+        table_rows = table_rows.strip()
+
+        tasks_table = table_header + table_rows
+
+        # Ahora, reemplazamos los marcadores de posición en el template con los valores reales del artículo
+        write_content = ""
+        write_content = markdown_template.format(
+            title=article["title"],
+            date=article["date"],
+            attendees_list=attendees_list.strip(),
+            summary=article["summary"],
+            body_section=body_list,
+            conclusions=article["conclusions"],
+            tasks_table=tasks_table
+        )
+
+
+
+        print(write_content)
         
         # Text Boxes and Labels
-        initial_contents = [article["body"],article["critique"]]  
+        initial_contents = [write_content,article["critique"]]  
         titles = ["Draft Article", "Critique"] 
         
         text_boxes = []
@@ -88,55 +159,33 @@ def rerun():
     st.session_state["newvalues"]=None
             
 
-# Initialize session state
 if 'api_key' not in st.session_state:
-    st.session_state['api_key'] = None
+    api_key = load_api_key()
+    st.session_state['api_key'] = api_key
+    
+if 'dm' not in st.session_state:
     st.session_state['dm'] = None
-    st.session_state['result']=None
-    st.session_state["newvalues"]=None
+    
+if 'newvalues' not in st.session_state:
+    st.session_state['newvalues'] = None
 
 # App title
-st.title("Human-In-The-Loop AI Collaboration with Reflection Agent")
+st.title("Actas de reunión")
 
-with st.sidebar:
-    st.markdown("""
-### What it's all about:
-
-    This application demonstrates
-    how artificial intelligence
-    agents and a human (you) can
-    collaborate on a task.
-    
-    Today's task is to write a news
-    article about a meeting for 
-    which a text transcript or 
-    minutes are available.
-    
-    You point to that source;
-    the writer agent drafts;
-    the critique agent critiques;
-    you can edit either the draft or
-    the critique. This repeats until
-    you are satisfied with a draft.
-    v0.0.4
-""")
 
 # Sidebar for API key input
 
 if not st.session_state.api_key:
     #with st.sidebar:
-    api_key=st.text_input("Enter your ChatGPT API key (Tier 1 or higher account) to get started:", type="password")
+    #api_key=st.text_input("Enter your ChatGPT API key (Tier 1 or higher account) to get started:", type="password")
+    api_key = os.getenv("OPENAI_API_KEY")
+    print(api_key)
     st.markdown("You can also use the custom GPT version free without an API key or a paid subscription by clicking [here](https://chatgpt.com/g/g-roNR24Ty6-collaborative-meeting-reporter).",
                 unsafe_allow_html=True)
     if api_key:
         st.session_state['api_key'] =api_key
         st.rerun()
-with st.sidebar:
-    st.markdown("[custom GPT Version](https://chatgpt.com/g/g-roNR24Ty6-collaborative-meeting-reporter)", unsafe_allow_html=True)
-    st.markdown("[feature requests](https://github.com/tevslin/meeting-reporter/discussions)", unsafe_allow_html=True)
-    st.markdown("[bug reports](https://github.com/tevslin/meeting-reporter/issues)", unsafe_allow_html=True)
-    st.markdown("[source code](https://github.com/tevslin/meeting-reporter)", unsafe_allow_html=True)
-    st.markdown("[blog post](https://blog.tomevslin.com/2024/04/human-in-the-loop-artificial-intelligence.html)", unsafe_allow_html=True)    
+  
 
 if st.session_state['api_key'] and st.session_state["dm"] is None:
     os.environ['OPENAI_API_KEY'] = st.session_state['api_key']
@@ -162,19 +211,65 @@ if st.session_state["result"]:
                 st.session_state["newvalues"]=None
                 st.rerun()
     if "quit" in st.session_state["result"]:
-        st.subheader(st.session_state.result["title"])
-        st.write(st.session_state.result["date"])
-        st.markdown(st.session_state.result["body"])
-        st.write("\n")
-        st.write("summary:",st.session_state.result["summary"])
-        st.button("Run with new document",key="rerun",on_click=rerun)
-        
-        with st.sidebar:
-            st.button("Run with new document",key="rerun1",on_click=rerun)
-        
+        markdown_template=""
             
+        markdown_template = """
+# {title}
 
+## Fecha: 
+{date}
 
-    
+## Asistentes
+
+{attendees_list}
+
+## Resumen
+
+{summary}
+
+## Principales Puntos de la Reunión
+
+{body_section}
+
+## Conclusiones
+
+{conclusions}
+
+## Tareas
+
+{tasks_table}
+        """
+        # Suponiendo que 'attendees' es una lista de diccionarios como se describe, necesitamos convertirla en una cadena de texto formateada adecuadamente
+        attendees_list = "\n".join([f"- **{attendee['name']} ({attendee['position']}): {attendee['role']}" for attendee in st.session_state.result["attendees"]])
+        body_list = st.session_state.result["takeaways"]
+        # Creando la lista numerada para 'body'
+        #body_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["body"])])
+
+        # Creando la tabla de tareas
+        table_header = "| Responsable | Fecha | Descripción |\n|-----------------|---------------|----------------------------------------------|\n"
+        table_rows = "\n".join([f"| {task['responsible']} | {task['date']} | {task['description']} |" for task in st.session_state.result["tasks"]])
+
+        # Aplicando strip() a cada elemento de las listas que contienen cadenas de texto
+        attendees_list = attendees_list.strip()
+        body_list = body_list
+        table_rows = table_rows.strip()
+
+        tasks_table = table_header + table_rows
+
+        # Ahora, reemplazamos los marcadores de posición en el template con los valores reales del artículo
+        write_content = ""
+        write_content = markdown_template.format(
+            title=st.session_state.result["title"],
+            date=st.session_state.result["date"],
+            attendees_list=attendees_list.strip(),
+            summary=st.session_state.result["summary"],
+            body_section=body_list,
+            conclusions=st.session_state.result["conclusions"],
+            tasks_table=tasks_table
+        )
+        
+        st.write(write_content)
+        
+        st.button("Run with new document",key="rerun",on_click=rerun)
 
 
