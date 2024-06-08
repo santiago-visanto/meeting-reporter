@@ -26,11 +26,13 @@ class WriterAgent:
             {
             "title": Title of the meeting,
             "date": Date of the meeting,
-            "attendees": List of dictionaries of the meeting attendees. The dictionaries must have the following key values: "name", "position" and "role". The "role" key refers to the attendee's function in the meeting. If any of the values of these keys is not clear or is not mentioned, it is given the value "Not clear".
-            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs".
-            "takeaways": Enumerate the takeaways of the meeting minute. 
-            "conclusions": Summary of the most important points that took place at the meeting and the conclusions.
-            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions.
+            "attendees": List of dictionaries of the meeting attendees. The dictionaries must have the following key values: "name", "position" and "role". The "role" key refers to the attendee's function in the meeting. If any of the values of these keys is not clear or is not mentioned, it is given the value "none".
+            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs. Separete paragraphs using newline characters.",
+            "takeaways": List of the takeaways of the meeting minute,
+            "conclusions": List of conclusions and actions to be taken,
+            "next_meeting": List of the commitments made at the meeting. Be sure to go through the entire content of the meeting before giving your answer,
+            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions. Be sure to include all the items in the next_mmeting list,
+            "message": "message to the critique",
             }
             """
 
@@ -74,19 +76,21 @@ class WriterAgent:
         response = ChatCohere(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
 
         print (f"Response from Writer: {response}")
-        return json.loads(response)
+        cleaned_response = response.strip("`").strip("\n").strip("json").strip("")
+        return json.loads(cleaned_response)
 
     def revise(self, article: dict):
         sample_revise_json = """
             {
             "title": Title of the meeting,
             "date": Date of the meeting,
-            "attendees":  List of dictionaries of the meeting attendees. The dictionaries must have the following key-values: "name", "position" and "role in the meeting".
-            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs".
-            "takeaways": Enumerate the takeaways of the meeting minute. 
-            "conclusions": Summary of the most important points that took place at the meeting and the conclusions.
-            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions.
-            "message": "message to the critique"
+            "attendees": List of dictionaries of the meeting attendees. The dictionaries must have the following key values: "name", "position" and "role". The "role" key refers to the attendee's function in the meeting. If any of the values of these keys is not clear or is not mentioned, it is given the value "none".
+            "summary": "succinctly summarize the minutes of the meeting in 3 clear and coherent paragraphs. Separete paragraphs using newline characters.",
+            "takeaways": List of the takeaways of the meeting minute,
+            "conclusions": List of conclusions and actions to be taken,
+            "next_meeting": List of the commitments made at the meeting. Be sure to go through the entire content of the meeting before giving your answer,
+            "tasks": List of dictionaries for the commitments acquired in the meeting. The dictionaries must have the following key values "responsible", "date" and "description". In the key-value  "description", it is advisable to mention specifically what the person in charge is expected to do instead of indicating general actions. Be sure to include all the items in the next_mmeting list,
+            "message": "message to the critique",
             }
             """
         prompt = [{
@@ -113,8 +117,8 @@ class WriterAgent:
         #response = ChatOpenAI(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
         #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
         response = ChatCohere(model=MODEL, max_retries=1, temperature=.5,model_kwargs=optional_params).invoke(lc_messages).content
-        
-        response = json.loads(response)
+        cleaned_response = response.strip("`").strip("\n").strip("json").strip("")
+        response = json.loads(cleaned_response)
         #print(f"For article: {article['title']}")
         print(f"Writer Revision Message: {response['message']}\n")
         return response
@@ -156,9 +160,9 @@ class CritiqueAgent:
         }] 
 
         lc_messages = convert_openai_messages(prompt)
-        #response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
+        response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
         #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
-        response = ChatCohere(model=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
+        #response = ChatCohere(model=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
 
 
         if response == 'None':

@@ -26,10 +26,10 @@ def process_form(form_number,article):
         
         del st.session_state.newvalues["next"]
     def do_first_dialog():
-        words_in_article = st.slider("Words in article", 100, 2000, 500)
+        words_in_article = st.slider("Número de palabras en el acta", 100, 2000, 500)
 
         # Radio buttons
-        source_document = st.radio("Retrieve source document from:", ["the internet", "my computer"])
+        source_document = st.radio("Fuente de la transcripción:", ["internet", "Mi PC"])
         
         # Buttons and logic
         if st.button('OK'):
@@ -49,7 +49,7 @@ def process_form(form_number,article):
                 st.text_input("Enter the URL of your source document:",key="url",
                                 on_change=set_value)
             else: #if have to upload file
-                st.file_uploader('Choose your source document',
+                st.file_uploader('Selecciona los documentos',
                                 type=['pdf','docx','html','txt'],
                                 accept_multiple_files=False,
                                 help="""
@@ -88,29 +88,33 @@ def process_form(form_number,article):
 
 ## Principales Puntos de la Reunión
 
-{body_section}
+{takeaways_section}
 
 ## Conclusiones
 
-{conclusions}
+{conclusions_section}
+
+## Próxima reunión
+
+{next_meeting_section}
 
 ## Tareas
 
 {tasks_table}
         """
         # Suponiendo que 'attendees' es una lista de diccionarios como se describe, necesitamos convertirla en una cadena de texto formateada adecuadamente
-        attendees_list = "\n".join([f"- **{attendee['name']} ({attendee['position']}): {attendee['role']}" for attendee in article["attendees"]])
-        body_list = article["takeaways"]
+        attendees_list = "\n".join([f"- **{attendee['name']} ({attendee['position']}): {attendee['role']}" for attendee in st.session_state.result["attendees"]])
+        #body_list = st.session_state.result["takeaways"]
         # Creando la lista numerada para 'body'
-        #body_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["body"])])
-
+        takeaways_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["takeaways"])])
+        next_meeting_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["next_meeting"])])
+        conclusions_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["conclusions"])])  
         # Creando la tabla de tareas
         table_header = "| Responsable | Fecha | Descripción |\n|-----------------|---------------|----------------------------------------------|\n"
-        table_rows = "\n".join([f"| {task['responsible']} | {task['date']} | {task['description']} |" for task in article["tasks"]])
+        table_rows = "\n".join([f"| {task['responsible']} | {task['date']} | {task['description']} |" for task in st.session_state.result["tasks"]])
 
         # Aplicando strip() a cada elemento de las listas que contienen cadenas de texto
         attendees_list = attendees_list.strip()
-        body_list = body_list
         table_rows = table_rows.strip()
 
         tasks_table = table_header + table_rows
@@ -118,12 +122,13 @@ def process_form(form_number,article):
         # Ahora, reemplazamos los marcadores de posición en el template con los valores reales del artículo
         write_content = ""
         write_content = markdown_template.format(
-            title=article["title"],
-            date=article["date"],
+            title=st.session_state.result["title"],
+            date=st.session_state.result["date"],
             attendees_list=attendees_list.strip(),
-            summary=article["summary"],
-            body_section=body_list,
-            conclusions=article["conclusions"],
+            summary=st.session_state.result["summary"],
+            takeaways_section=takeaways_list,
+            conclusions_section=conclusions_list,
+            next_meeting_section=next_meeting_list,
             tasks_table=tasks_table
         )
 
@@ -133,7 +138,7 @@ def process_form(form_number,article):
         
         # Text Boxes and Labels
         initial_contents = [write_content,article["critique"]]  
-        titles = ["Draft Article", "Critique"] 
+        titles = ["Borrador del acta", "Comentarios al acta"] 
         
         text_boxes = []
         for content, title in zip(initial_contents, titles):
@@ -170,7 +175,7 @@ if 'newvalues' not in st.session_state:
     st.session_state['newvalues'] = None
 
 # App title
-st.title("Actas de reunión")
+st.title("Elaboración de actas de reunión")
 
 
 # Sidebar for API key input
@@ -229,11 +234,15 @@ if st.session_state["result"]:
 
 ## Principales Puntos de la Reunión
 
-{body_section}
+{takeaways_section}
 
 ## Conclusiones
 
-{conclusions}
+{conclusions_section}
+
+## Próxima reunión
+
+{next_meeting_section}
 
 ## Tareas
 
@@ -241,17 +250,17 @@ if st.session_state["result"]:
         """
         # Suponiendo que 'attendees' es una lista de diccionarios como se describe, necesitamos convertirla en una cadena de texto formateada adecuadamente
         attendees_list = "\n".join([f"- **{attendee['name']} ({attendee['position']}): {attendee['role']}" for attendee in st.session_state.result["attendees"]])
-        body_list = st.session_state.result["takeaways"]
+        #body_list = st.session_state.result["takeaways"]
         # Creando la lista numerada para 'body'
-        #body_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate(article["body"])])
-
+        takeaways_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate( st.session_state.result["takeaways"])])
+        next_meeting_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate( st.session_state.result["next_meeting"])])
+        conclusions_list = "\n".join([f"{index + 1}. {item}" for index, item in enumerate( st.session_state.result["conclusions"])])
         # Creando la tabla de tareas
         table_header = "| Responsable | Fecha | Descripción |\n|-----------------|---------------|----------------------------------------------|\n"
         table_rows = "\n".join([f"| {task['responsible']} | {task['date']} | {task['description']} |" for task in st.session_state.result["tasks"]])
 
         # Aplicando strip() a cada elemento de las listas que contienen cadenas de texto
         attendees_list = attendees_list.strip()
-        body_list = body_list
         table_rows = table_rows.strip()
 
         tasks_table = table_header + table_rows
@@ -263,12 +272,15 @@ if st.session_state["result"]:
             date=st.session_state.result["date"],
             attendees_list=attendees_list.strip(),
             summary=st.session_state.result["summary"],
-            body_section=body_list,
-            conclusions=st.session_state.result["conclusions"],
+            takeaways_section=takeaways_list,
+            conclusions_section=conclusions_list,
+            next_meeting_section = next_meeting_list,
             tasks_table=tasks_table
         )
         
         st.write(write_content)
+        
+        st.write("\n \n")
         
         st.button("Run with new document",key="rerun",on_click=rerun)
 
