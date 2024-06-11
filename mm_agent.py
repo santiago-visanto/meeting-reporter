@@ -160,9 +160,9 @@ class CritiqueAgent:
         }] 
 
         lc_messages = convert_openai_messages(prompt)
-        response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
+        #response = ChatOpenAI(model="gpt-4",temperature=1.0, max_retries=1).invoke(lc_messages).content
         #response = ChatGroq(model_name=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
-        #response = ChatCohere(model=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
+        response = ChatCohere(model=MODEL, max_retries=1, temperature=1.0).invoke(lc_messages).content
 
 
         if response == 'None':
